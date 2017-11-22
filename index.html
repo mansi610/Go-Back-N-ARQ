@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <meta charset="UTF-8" />
+    <meta name="author" content="Mansika T" />
+    <link rel="stylesheet" type="text/css" href="app.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script src="app.js"></script>
+</head>
+
+<body>
+    <div id="header">
+        <h2>GO-BACK-N ARQ</h2>
+    </div>
+    <div id="outer">
+        <div id="content">
+			 <table>
+				<tbody>
+				<tr>
+					<td>
+						<div>
+							<div id="properties">
+								<table>
+									<tbody>
+									
+											<tr>
+											<td>Number of Frames</td>
+											<td>
+												<input type="text" size="15" id="totalFrames" value="7" />
+											</td>
+										</tr>
+										<tr>
+											<td>Window Size</td>
+											<td>
+												<input type="text" size="15" id="windowSize" value="3" />
+											</td>
+										</tr>
+										<tr>
+											<td>Timeout(s)</td>
+											<td>
+												<input type="text" size="15" id="timeout" value="10000" />
+											</td>
+										</tr>
+										<tr>
+											<td>Speed</td>
+											<td>
+												<input type="text" size="15" id="speed" value="4" />
+											</td>
+										</tr>
+										<tr>
+											<td></td>
+											<td></td>
+										</tr>
+										<tr>
+											<td>
+												<button id="startBtn" class="startBtn">Start</button>
+											</td>
+											<td>
+												<button id="stopBtn" class="stopBtn">Stop</button>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							 
+							<div id="consoleContainer" >
+								<div id="consoleHeader">Console</div>
+								<div id="console"></div>
+							</div>
+						</div>
+					</td>
+					<td style="">
+						 <div id="simulation" style="width:650px;height:500px;">
+							<div id="sender"></div>
+							<div id="medium"></div>
+							<div id="receiver"></div>
+						</div>
+						  
+					</td>
+							
+				</tr>
+			</tbody>
+		</table>
+            
+			
+			
+        </div>
+
+    </div>
+    <div id="footer">
+        <div class="copyright">
+            <span>© 2017, Developed by Mansika Trivedi CSU East Bay, CA</span>
+        </div>
+    </div>
+</body>
+
+</html>
