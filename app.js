@@ -1,32 +1,18 @@
-/**
- * This file defines three group of functions
- * 1. Application common controller, utility functions
- * 2. Sender functions
- * 3. Receiver functions
- **/
-
-
-/*
- *
- *
- * //////////// 1. APPLICATION Common controller, utility functions goes here /////////
- *
- */
 
 //Global properties
-var sfSlots;// Sender frame slots or a queue	
-var rfSlots; // Receiver frame Slots or a queue
+var sSlots;// Sender frame slots or a queue	
+var rSlots; // Receiver frame Slots or a queue
 var totalFrames; //Total frames
-var windowPanel; // Sliding Window UI
+var wdwPanel; // Sliding Window UI
 var windowSize; // Sliding window size
-var windowSb; // Window start sequence
-var windowSm; // Sliding window sequence maximum currently
+var wdwSS; // Window start sequence
+var wdwSMax; // Sliding window sequence maximum currently
 var timeout; // Sender time out value to generate ACK POLL command
 var speed; // Speed of the transmission (Animation)
-var rcvrExptedSn = 0; //Receiver expected sequence
+var ExpectedSeq = 0; //Receiver expected sequence
 
-var pollIntervals = []; // IDs of poll intervals
-var timers = []; // IDs of timers
+var intervalPoll = []; // IDs of poll intervals
+var timerID = []; // IDs of timer
 
 $(document).ready(function() {
 
@@ -40,7 +26,7 @@ $(document).ready(function() {
         log("Starting simulator, please wait..");
         //Allow delay to user to select the sender frame slots to send damaged frame
         setTimeout(function() {
-            startSender();
+            sendStart();
         }, 1000);
 
     });
@@ -52,16 +38,7 @@ $(document).ready(function() {
 
 });
 
-//Initialize the application state
-function init() {
-    clearConsole();
-    cleanup();
-    clearTimeout();
-    readProperties();
-    createFrameSlots();
-    createWindow();
-    log("Initializing app...");
-}
+
 
 // Read user entered properties and populate them into global properties
 function readProperties() {
@@ -69,20 +46,32 @@ function readProperties() {
     windowSize = $("#windowSize").val();
     timeout = $("#timeout").val();
     speed = $("#speed").val();
-    windowSb = 0;
-    windowSm = windowSize - 1;
+    wdwSS = 0;
+    wdwSMax = windowSize - 1;
+}
+
+//Initialize the application state
+function init() {
+    clrConsole();
+    cleanup();
+    clearTimeout();
+    readProperties();
+    createFrSlots();
+    createWdw();
+    log("Initializing app...");
 }
 
 
-// Returns receiver location (address)
-function receiverAddress() {
-    var height = rfSlots[0].position().top;
-    return height;
-}
 
 // Returns sender location (address)
 function senderAddress() {
-    var height = sfSlots[0].position().top;
+    var height = sSlots[0].position().top;
+    return height;
+}
+
+// Returns receiver location (address)
+function receiverAddress() {
+    var height = rSlots[0].position().top;
     return height;
 }
 
@@ -100,7 +89,7 @@ function isDamagedFrame(frame) {
 }
 
 // Transmit frame into medium
-function transmitFrame(frame, topPos, leftPos) {
+function transmitFr(frame, topPos, leftPos) {
     //Put frame into medium
     frame.css({
         top: topPos,
@@ -111,7 +100,7 @@ function transmitFrame(frame, topPos, leftPos) {
 }
 
 //Propagate frame in medium
-function propagateFrame(frame, position, completeCallback) {
+function propagateFr(frame, position, completeCallback) {
     // Start transmission, call receiver when transmission completes
     frame.animate({
             top: position
@@ -126,52 +115,52 @@ function cleanup() {
     $("#sender").empty();
     $("#medium").empty();
     $("#receiver").empty();
-    sfSlots = []; // Sender frame slots
-    rfSlots = []; // Receiver frame Slots
-    windowPanel = null;
-    rcvrExptedSn = 0; //Receiver expected sequence
-    clearTimerIntervals(); // //Clear pollIntervals if anything running
+    sSlots = []; // Sender frame slots
+    rSlots = []; // Receiver frame Slots
+    wdwPanel = null;
+    ExpectedSeq = 0; //Receiver expected sequence
+    clrTimeIntervals(); // //Clear intervalPoll if anything running
 }
 
 //Create frame slots on sender and receier side to have them set up for communication
-function createFrameSlots() {
+function createFrSlots() {
     for (var i = 0; i < totalFrames; i++) {
 
         //Create sender side frame slots   
-        var sfSlot = createFrameUi("readyFrame", "Frame " + i, i, i);
-        sfSlot.attr("title", "Click to mark to demage.");
+        var sSlot = createFrUi("readyFrame", "Frame " + i, i, i);
+        sSlot.attr("title", "Click to mark to damage.");
 
-        sfSlot.on("click", function() {
-            log("User: " + $(this).text() + "- Marked to demage.");
+        sSlot.on("click", function() {
+            log("User: " + $(this).text() + "- Marked to damage.");
             $(this).addClass("damagedFrame");
         });
 
-        sfSlots.push(sfSlot);
-        $("#sender").append(sfSlot);
+        sSlots.push(sSlot);
+        $("#sender").append(sSlot);
 
 
         //Create received side frame slots
-        var rfSlot = createFrameUi("expectedFrame", "Frame " + i, i);
-        rfSlots.push(rfSlot);
-        $("#receiver").append(rfSlot);
+        var rSlot = createFrUi("expectedFrame", "Frame " + i, i);
+        rSlots.push(rSlot);
+        $("#receiver").append(rSlot);
     }
 }
 
 
 // Extract sequence number from frame
-function sequenceNo(frame) {
+function seqNo(frame) {
     return frame.attr("id");
 }
 
 // Extract expected sequence number from frame
-function expectedSqNo(frame) {
+function exptdSqNo(frame) {
     return frame.attr("name");
 }
 
 
 //Creates the requested frame
-function createFrame(frameStyle, text, sequenceNo, data) {
-    var frame = createFrameUi(frameStyle, text, sequenceNo, data);
+function createFr(frameStyle, text, seqNo, data) {
+    var frame = createFrUi(frameStyle, text, seqNo, data);
     frame.attr("title", "Click to kill");
 
     // Kill frame by a click
@@ -185,40 +174,40 @@ function createFrame(frameStyle, text, sequenceNo, data) {
 }
 
 // Create frame like UI
-function createFrameUi(frameStyle, text, sequenceNo, data) {
+function createFrUi(frameStyle, text, seqNo, data) {
     var $frame = $("<span></span>");
     $frame.addClass("frame");
     $frame.addClass(frameStyle);
     $frame.text(text);
-    $frame.attr("id", sequenceNo);
+    $frame.attr("id", seqNo);
     $frame.attr("name", data);
     return $frame;
 }
 
 // Creates sliding window UI
-function createWindow() {
+function createWdw() {
 
-    windowPanel = $("<div></div>"); //Sliding Window
-    windowPanel.addClass("swindow");
-    var sfSlot = sfSlots[windowSb];
-    var width = sfSlot.outerWidth() * windowSize + windowSize * 10 + 2;
-    windowPanel.css("width", width);
-    windowPanel.css({
-        top: sfSlot.position().top - 10,
-        left: sfSlot.position().left,
+    wdwPanel = $("<div></div>"); //Sliding Window
+    wdwPanel.addClass("swindow");
+    var sSlot = sSlots[wdwSS];
+    var width = sSlot.outerWidth() * windowSize + windowSize * 10 + 2;
+    wdwPanel.css("width", width);
+    wdwPanel.css({
+        top: sSlot.position().top - 10,
+        left: sSlot.position().left,
         position: "absolute"
     });
-    $("#medium").append(windowPanel);
+    $("#medium").append(wdwPanel);
 }
 
 //When transmission of all frames done, just clear the window from view
-function clearWindow() {
-    windowPanel.fadeOut(3000);
+function clearWdw() {
+    wdwPanel.fadeOut(3000);
 }
 
 
 //Utility function to identify frame type
-function frameType(frame) {
+function frtype(frame) {
     var frameClass = frame.attr("class");
     if (frameClass.indexOf("readyFrame") != -1)
         return "readyFrame";
@@ -245,73 +234,62 @@ function log(message) {
 }
 
 //Clear the console whenever needed
-function clearConsole() {
+function clrConsole() {
     $("#console").empty();
 }
 
 
-/***
- *
- *
- *   ////////////////////// 2. SENDER functions goes below //////////////////////
- *
- */
-
-/**
-Sender functions are defined on this file
-**/
-
 //Sender - Starting the transmission from sender end
-function startSender() {
+function sendStart() {
     log("Sender ready..");
     log("Receiver ready..");
 
     //Start transmitting the frames which all inside the window
     for (var i = 0; i < windowSize; i++) {
-        var frame = createFrame("infoFrame", "Frame " + i, i);
-        sendInfoFrame(i);
+        var frame = createFr("infoFrame", "Frame " + i, i);
+        sendInfoFr(i);
     }
 }
 
 // Sender - sending infoFrame
-function sendInfoFrame(sn) {
+function sendInfoFr(sn) {
 
     // If frame has already been transmitted state, don't send again
-    if (frameType(sfSlots[sn]) == "transmittedFrame")
+    if (frtype(sSlots[sn]) == "transmittedFrame")
         return;
 
     //Create info frame
-    var frame = createFrame("infoFrame", "Frame " + sn, sn);
+    var frame = createFr("infoFrame", "Frame " + sn, sn);
 
     //Simulate damaged frame
-    if (isDamagedFrame(sfSlots[sn])) {
+    if (isDamagedFrame(sSlots[sn])) {
         frame.addClass("damagedFrame");
-        sfSlots[sn].removeClass("damagedFrame");
+        sSlots[sn].removeClass("damagedFrame");
     }
 
     log("Sender: Transmitting - " + frame.text());
 
     //Transmit frame into medium
-    transmitFrame(frame, sfSlots[sn].position().top + 10, sfSlots[sn].position().left);
+    transmitFr(frame, sSlots[sn].position().top + 10, sSlots[sn].position().left);
 
     // Start propagation, call receiver when transmission completes      
-    propagateFrame(frame, receiverAddress(), function() {
+    propagateFr(frame, receiverAddress(), function() {
         receiver($(this));
     });
 
     // Create Timer for each transmitted frame
-    var timer = setTimeout(handleInfoFrameTimeout, timeout, frame);
-    timers.push(timer);
+    var timer = setTimeout(handleInfoFrTimeout, timeout, frame);
+    timerID.push(timer);
 }
 
 //Sender - process time out when ACK is not received from receiver for a frame
-function handleInfoFrameTimeout(timedOutFrame) {
+function handleInfoFrTimeout(timedOutFrame) {
 
     var pollReceiver = function() {
 
         //Ignore timeout if ACK already received for frame
-        var sn = sequenceNo(timedOutFrame);
-        var frameSlotStatus = frameType(sfSlots[sn]);
+        var sn = seqNo(timedOutFrame);
+        var frameSlotStatus = frtype(sSlots[sn]);
         if (frameSlotStatus == "transmittedFrame") {
             var pollData = getPollIntervalData(sn);
             pollData.active = 0;
@@ -326,53 +304,53 @@ function handleInfoFrameTimeout(timedOutFrame) {
 
         //Timeout logic - Create ACK POLL frame
         log("Sender: Timed out - " + sn);
-        var frame = createFrame("ackPollFrame", "Ack Poll", sn);
+        var frame = createFr("ackPollFrame", "Ack Poll", sn);
 
         //Transmit ACK POLL frame into medium
-        transmitFrame(frame, sfSlots[sn].position().top + 10, sfSlots[sn].position().left);
+        transmitFr(frame, sSlots[sn].position().top + 10, sSlots[sn].position().left);
 
         // Start propagation, call receiver when transmission completes      
-        propagateFrame(frame, receiverAddress(), function() {
+        propagateFr(frame, receiverAddress(), function() {
             receiver($(this));
         });
     };
 
     //Sender polls receiver untill it receives RR Final=1
     var id = setInterval(pollReceiver, timeout);
-    pollIntervals.push(new PollIntervalData(id, sequenceNo(timedOutFrame), 1));
+    intervalPoll.push(new PollIntervalData(id, seqNo(timedOutFrame), 1));
 
 }
 
 
-function clearTimerIntervals() {
+function clrTimeIntervals() {
 
-    //Clear timers
-    for (var i = 0; i < timers.length; i++) {
-        clearTimeout(timers[i]);
+    //Clear timerID
+    for (var i = 0; i < timerID.length; i++) {
+        clearTimeout(timerID[i]);
     }
 
-    //Clear pollIntervals
-    for (var j = 0; j < pollIntervals.length; j++) {
-        var pollData = pollIntervals[j];
+    //Clear intervalPoll
+    for (var j = 0; j < intervalPoll.length; j++) {
+        var pollData = intervalPoll[j];
         pollData.active = 0;
         clearInterval(pollData.id);
     }
 
-    timers = []; // Make empty
-    pollIntervals = []; //Make empty
+    timerID = []; // Make empty
+    intervalPoll = []; //Make empty
 
 }
 
-function clearPollTimerIntervalsBySn(sn) {
+function clrPollTimeIntervalsBySn(sn) {
 
-    //Clear pollIntervals
-    for (var j = 0; j < pollIntervals.length; j++) {
-       // var pollData = pollIntervals[j];
+    //Clear intervalPoll
+    for (var j = 0; j < intervalPoll.length; j++) {
+       // var pollData = intervalPoll[j];
         //log("Clear - pollData = " + pollData.sn + " sn="+sn);
-        if (pollIntervals[j].sn <=  Number(sn)) {
-           // log("clearPollTimerIntervalsBySn - " + sn);
-            pollIntervals[j].active = 0;
-            clearInterval(pollIntervals[j].id);
+        if (intervalPoll[j].sn <=  Number(sn)) {
+           // log("clrPollTimeIntervalsBySn - " + sn);
+            intervalPoll[j].active = 0;
+            clearInterval(intervalPoll[j].id);
            // window.alert("Stop");
         }
     }
@@ -380,8 +358,8 @@ function clearPollTimerIntervalsBySn(sn) {
 
 // Check whether there is already active poll request in the window to prevernt over whelming of ACKPoll request
 function isAnyPollIntervalActive(sn) {
-    for (var i = 0; i < pollIntervals.length; i++) {
-        var pollData = pollIntervals[i];
+    for (var i = 0; i < intervalPoll.length; i++) {
+        var pollData = intervalPoll[i];
         
         if ((pollData.active == 1) && (Number(pollData.sn) < Number(sn)) ){
            log("Already sn="+sn + " pollData.sn="+pollData.sn);
@@ -400,8 +378,8 @@ function PollIntervalData(id, sn, active) {
 
 // Return PollIntervalData for specific SN
 function getPollIntervalData(sn) {
-    for (var i = 0; i < pollIntervals.length; i++) {
-        var pollData = pollIntervals[i];
+    for (var i = 0; i < intervalPoll.length; i++) {
+        var pollData = intervalPoll[i];
         if (pollData.sn == sn)
             return pollData;
     }
@@ -413,8 +391,8 @@ function getPollIntervalData(sn) {
 function handleAck(receivedAck) {
     log("Sender: Received - " + receivedAck.text());
 
-    var nextExpectedSn = expectedSqNo(receivedAck);
-    var receivedAckType = frameType(receivedAck);
+    var nextExpectedSn = exptdSqNo(receivedAck);
+    var receivedAckType = frtype(receivedAck);
 
     // Process ACK Final=1 frame
     if (receivedAckType == "ackFinalFrame") {
@@ -425,19 +403,19 @@ function handleAck(receivedAck) {
 
     // Process ACK Final=1 frame
     if (receivedAckType == "ackREJFrame") {
-        sendInfoFrame(sequenceNo(receivedAck));
+        sendInfoFr(seqNo(receivedAck));
         receivedAck.remove();
         return;
     }
 
     //Process RR frame and mark readyFrame to transmittedFrame
     for (var i = 0; i < nextExpectedSn; i++) {
-        var sfSlot = sfSlots[i];
-        if (frameType(sfSlot) != 'transmittedFrame') {
-            var sn = sequenceNo(sfSlot);
-            clearPollTimerIntervalsBySn(sn);
-            sfSlot.removeClass("readyFrame").addClass("transmittedFrame");
-            sfSlot.removeAttr("title").attr("title", "Transmission Confirmed.");
+        var sSlot = sSlots[i];
+        if (frtype(sSlot) != 'transmittedFrame') {
+            var sn = seqNo(sSlot);
+            clrPollTimeIntervalsBySn(sn);
+            sSlot.removeClass("readyFrame").addClass("transmittedFrame");
+            sSlot.removeAttr("title").attr("title", "Transmission Confirmed.");
         }
     }
 
@@ -445,13 +423,13 @@ function handleAck(receivedAck) {
     if (Number(nextExpectedSn) >= Number(totalFrames)) {
         receivedAck.remove();
         log("Done.");
-        clearWindow();
-        clearTimerIntervals();
+        clearWdw();
+        clrTimeIntervals();
         return;
     }
 
     //Slide window
-    slideWindow();
+    slideWdw();
 
     // Remove the Ack from buffer
     receivedAck.remove();
@@ -459,51 +437,39 @@ function handleAck(receivedAck) {
 
 //Go back to expected SN slot and transmit frame from there
 function goBackN(expectedSn) {
-    for (var i = expectedSn; i <= windowSm; i++) {
-        sendInfoFrame(i);
+    for (var i = expectedSn; i <= wdwSMax; i++) {
+        sendInfoFr(i);
     }
 }
 
 // Used to slide window
-function slideWindow() {
-    ++windowSb;
-    ++windowSm;
+function slideWdw() {
+    ++wdwSS;
+    ++wdwSMax;
 
-    if (Number(windowSm) >= Number(totalFrames)) {
-        windowSm = totalFrames - 1;
+    if (Number(wdwSMax) >= Number(totalFrames)) {
+        wdwSMax = totalFrames - 1;
         return; // Done
     }
 
-    windowPanel.animate({
-        left: sfSlots[windowSb].position().left + 2
+    wdwPanel.animate({
+        left: sSlots[wdwSS].position().left + 2
     }, 50);
-    sendInfoFrame(windowSm); //After a slide, send a info frame
+    sendInfoFr(wdwSMax); //After a slide, send a info frame
 }
-
-
-
-
-
-/***
- *
- *
- *   ////////////////////// 3. RECEIVER functions goes below //////////////////////
- *
- */
-
 
 
 //Receiver - Process received frame
 function receiver(receivedFrame) {
 
     //Process Poll frame
-    if (frameType(receivedFrame) == "ackPollFrame") {
-        handlePollCmd(receivedFrame);
+    if (frtype(receivedFrame) == "ackPollFrame") {
+        handlePoll(receivedFrame);
         return;
     }
 
     // Process info frame
-    var sn = sequenceNo(receivedFrame);
+    var sn = seqNo(receivedFrame);
 
     //Check whether frame is damaged or not
     if (isDamagedFrame(receivedFrame)) { //Dicard damaged frame
@@ -514,7 +480,7 @@ function receiver(receivedFrame) {
     }
 
     //Discard frame if SN does not match with expected SN
-    if (rcvrExptedSn != sn) {
+    if (ExpectedSeq != sn) {
         log("Receiver: Discarded - " + receivedFrame.text());
         receivedFrame.remove();
         return;
@@ -522,10 +488,10 @@ function receiver(receivedFrame) {
 
     //Proceed when SN matches and not a duplicate frame
     log("Receiver: Received - " + receivedFrame.text());
-    ++rcvrExptedSn; //Increase the received expected sequence number
+    ++ExpectedSeq; //Increase the received expected sequence number
     sendAck(receivedFrame, "RR"); // Send ACK for received frame
-    sendInfoFrameToUpperLayer(receivedFrame); //  Transfer frame to upper layer
-    rfSlots[sn].removeClass("expectedFrame").addClass("receivedFrame"); // Change the status of the frame (color)
+    sendInfoFrToUpperLayer(receivedFrame); //  Transfer frame to upper layer
+    rSlots[sn].removeClass("expectedFrame").addClass("receivedFrame"); // Change the status of the frame (color)
     receivedFrame.remove(); //Remove the frame from receiver buffer
 
 }
@@ -534,43 +500,43 @@ function receiver(receivedFrame) {
 function sendAck(receivedFrame, ackType) {
 
     // Get the frame SN
-    var sn = sequenceNo(receivedFrame);
+    var sn = seqNo(receivedFrame);
 
     // Create RR ACK frame
-    var ackFrameType = "";
+    var ackfrtype = "";
     if (ackType == "RR")
-        ackFrameType = "ackRRFrame"
+        ackfrtype = "ackRRFrame"
     else
-        ackFrameType = "ackREJFrame";
+        ackfrtype = "ackREJFrame";
 
-    var ack = createFrame(ackFrameType, ackType + " " + rcvrExptedSn, sn, rcvrExptedSn);
+    var ack = createFr(ackfrtype, ackType + " " + ExpectedSeq, sn, ExpectedSeq);
 
     //Receiver transmits RR Ack frame into medium
-    transmitFrame(ack, rfSlots[0].position().top, rfSlots[sn].position().left);
+    transmitFr(ack, rSlots[0].position().top, rSlots[sn].position().left);
 
     // Start propagation, medium calls sender on delivery
-    propagateFrame(ack, senderAddress(), function() {
+    propagateFr(ack, senderAddress(), function() {
         handleAck($(this));
     });
 
 }
 
 
-function handlePollCmd(receivedFrame) {
+function handlePoll(receivedFrame) {
     log("Receiver: Received -" + receivedFrame.text());
 
     // Read and remove Ack poll frame from buffer
     receivedFrame.remove();
 
     // Create RR ACK frame
-    var ack = createFrame("ackFinalFrame", "RR" + rcvrExptedSn + " F", sequenceNo(receivedFrame), rcvrExptedSn);
+    var ack = createFr("ackFinalFrame", "RR" + ExpectedSeq + " F", seqNo(receivedFrame), ExpectedSeq);
 
     //Receiver puts Ack frame into medium
-    var sn = sequenceNo(receivedFrame);
-    transmitFrame(ack, rfSlots[sn].position().top, rfSlots[sn].position().left);
+    var sn = seqNo(receivedFrame);
+    transmitFr(ack, rSlots[sn].position().top, rSlots[sn].position().left);
 
     // Start propagation, medium calls sender on delivery
-    propagateFrame(ack, senderAddress(), function() {
+    propagateFr(ack, senderAddress(), function() {
         handleAck($(this));
     });
 
@@ -578,7 +544,7 @@ function handlePollCmd(receivedFrame) {
 
 
 //Send frame to upper layer
-function sendInfoFrameToUpperLayer(receivedFrame) {
+function sendInfoFrToUpperLayer(receivedFrame) {
     // Sending the frame to upper layer for further processing
     //log("Receiver: Upper layer received - " + receivedFrame.text());
 }
